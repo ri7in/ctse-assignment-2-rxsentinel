@@ -1,0 +1,61 @@
+# Claude context (private, never commit)
+context/
+.claude/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.tox/
+dist/
+build/
+*.egg
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+.turbo/
+*.tsbuildinfo
+next-env.d.ts
+
+# Env / secrets
+.env
+.env.local
+.env.*.local
+
+# OS
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.vscode/
+.idea/
+
+# Runs / traces / caches
+runs/
+backend/data/cache/*.db
+backend/data/cache/*.db-journal
+*.log
+
+# LaTeX build artifacts
+docs/report/*.aux
+docs/report/*.log
+docs/report/*.out
+docs/report/*.synctex.gz
+docs/report/*.toc
+docs/report/*.fls
+docs/report/*.fdb_latexmk
+docs/report/*.bbl
+docs/report/*.blg
