@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" aria-label="RxSentinel logo">
+  <title>RxSentinel</title>
+  <defs>
+    <linearGradient id="rx-shield-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#06B6D4"/>
+      <stop offset="100%" stop-color="#0891B2"/>
+    </linearGradient>
+  </defs>
+  <path d="M32 3 L57 13 V32 Q57 51 32 61 Q7 51 7 32 V13 Z"
+        stroke="url(#rx-shield-gradient)" stroke-width="3" stroke-linejoin="round" fill="none"/>
+  <path d="M22 19 L22 47 M22 19 L31 19 Q36 19 36 24.5 Q36 30 31 30 L22 30"
+        stroke="url(#rx-shield-gradient)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <path d="M30 30 L43 47"
+        stroke="url(#rx-shield-gradient)" stroke-width="3" stroke-linecap="round" fill="none"/>
+  <path d="M34 33 L40 39"
+        stroke="url(#rx-shield-gradient)" stroke-width="3" stroke-linecap="round" fill="none"/>
+</svg>
