@@ -1,0 +1,11 @@
+rxcui_a,name_a,rxcui_b,name_b,severity,mechanism,clinical_effect,recommendation
+29046,warfarin,5640,ibuprofen,high,additive bleeding risk + CYP2C9 inhibition,major hemorrhage,avoid combination
+6135,lisinopril,5640,ibuprofen,high,reduced renal prostaglandin synthesis,acute kidney injury,avoid chronic NSAIDs
+6918,simvastatin,89706,clarithromycin,high,CYP3A4 inhibition raises simvastatin levels,severe myopathy,hold simvastatin
+1551,amiodarone,29046,warfarin,high,CYP2C9 inhibition,bleeding,reduce warfarin dose
+1551,amiodarone,3443,digoxin,high,p-glycoprotein inhibition,digoxin toxicity,reduce digoxin
+3640,fluoxetine,32968,tramadol,high,additive serotonergic activity,serotonin syndrome,avoid combination
+89013,sildenafil,4787,nitroglycerin,high,additive vasodilation,profound hypotension,absolute contraindication
+1551,amiodarone,2670,levofloxacin,high,QT prolongation,torsades de pointes,avoid combination
+6135,lisinopril,38454,spironolactone,high,additive hyperkalemia,life-threatening hyperkalemia,monitor potassium
+29046,warfarin,1191,acetaminophen,moderate,VKORC1 modulation,prolonged INR,limit acetaminophen 2g/day
