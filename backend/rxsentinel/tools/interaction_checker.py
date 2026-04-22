@@ -1,4 +1,4 @@
-"""Interaction checker tool — Shehan. Initial local-DB-only version."""
+"""Interaction checker — Shehan. Adds openFDA query (no cache yet)."""
 from __future__ import annotations
 
 import csv
@@ -6,7 +6,9 @@ import sqlite3
 from contextlib import closing
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
+
+import httpx
 
 from rxsentinel.config import settings
 
@@ -51,8 +53,28 @@ def _ensure_db() -> None:
         conn.commit()
 
 
+async def query_openfda(drug_a: str, drug_b: str) -> dict:
+    """Hit openFDA adverse-events for co-mentions of two drugs."""
+    a, b = sorted([drug_a.lower(), drug_b.lower()])
+    search = f'patient.drug.medicinalproduct:"{a}"+AND+patient.drug.medicinalproduct:"{b}"'
+    url = f"{settings.openfda_base_url}/drug/event.json"
+    params = {"search": search, "count": "patient.reaction.reactionmeddrapt.exact", "limit": 10}
+    async with httpx.AsyncClient() as client:
+        try:
+            resp = await client.get(url, params=params, timeout=settings.http_timeout)
+            if resp.status_code == 404:
+                return {"co_mention_count": 0, "top_reactions": [], "severity_signal": 0.0}
+            resp.raise_for_status()
+            data = resp.json()
+        except httpx.HTTPError:
+            return {"co_mention_count": 0, "top_reactions": [], "severity_signal": 0.0}
+    reactions = data.get("results", [])
+    top = [{"term": r["term"], "count": r["count"]} for r in reactions]
+    total = sum(r["count"] for r in reactions)
+    return {"co_mention_count": total, "top_reactions": top, "severity_signal": 0.0}
+
+
 async def check_interaction(rxcui_a: str, rxcui_b: str) -> list[InteractionRecord]:
-    """Look up an interaction in the curated local DB."""
     if not rxcui_a or not rxcui_b or rxcui_a == rxcui_b:
         return []
     _ensure_db()
@@ -64,7 +86,14 @@ async def check_interaction(rxcui_a: str, rxcui_b: str) -> list[InteractionRecor
         ).fetchone()
     if not row:
         return []
-    return [InteractionRecord(a, b, row[0], row[1], row[2], row[3], row[4], row[5], ["local-db"])]
+    rec = InteractionRecord(a, b, row[0], row[1], row[2], row[3], row[4], row[5], ["local-db"])
+    try:
+        fda = await query_openfda(rec.name_a, rec.name_b)
+        if fda["co_mention_count"] > 0:
+            rec.sources.append("openFDA")
+    except Exception:
+        pass
+    return [rec]
 
 
 def severity_summary(interactions: list) -> dict:
