@@ -1,11 +1,22 @@
 rxcui_a,name_a,rxcui_b,name_b,severity,mechanism,clinical_effect,recommendation
-29046,warfarin,5640,ibuprofen,high,additive bleeding risk + CYP2C9 inhibition,major hemorrhage,avoid combination
-6135,lisinopril,5640,ibuprofen,high,reduced renal prostaglandin synthesis,acute kidney injury,avoid chronic NSAIDs
-6918,simvastatin,89706,clarithromycin,high,CYP3A4 inhibition raises simvastatin levels,severe myopathy,hold simvastatin
-1551,amiodarone,29046,warfarin,high,CYP2C9 inhibition,bleeding,reduce warfarin dose
-1551,amiodarone,3443,digoxin,high,p-glycoprotein inhibition,digoxin toxicity,reduce digoxin
-3640,fluoxetine,32968,tramadol,high,additive serotonergic activity,serotonin syndrome,avoid combination
-89013,sildenafil,4787,nitroglycerin,high,additive vasodilation,profound hypotension,absolute contraindication
-1551,amiodarone,2670,levofloxacin,high,QT prolongation,torsades de pointes,avoid combination
-6135,lisinopril,38454,spironolactone,high,additive hyperkalemia,life-threatening hyperkalemia,monitor potassium
-29046,warfarin,1191,acetaminophen,moderate,VKORC1 modulation,prolonged INR,limit acetaminophen 2g/day
+6809,metformin,8163,iodinated contrast,high,renal accumulation,risk of lactic acidosis from contrast-induced acute kidney injury,hold metformin 48h before and after iodinated contrast
+29046,warfarin,5640,ibuprofen,high,additive bleeding risk + CYP2C9 inhibition,major hemorrhage,avoid combination; if needed use acetaminophen instead
+29046,warfarin,1191,acetaminophen,moderate,enhanced INR via VKORC1 modulation at high doses,prolonged INR / bleeding,limit acetaminophen to 2g/day; monitor INR
+3640,fluoxetine,32968,tramadol,high,additive serotonergic activity,serotonin syndrome,avoid combination; consider non-serotonergic analgesic
+6135,lisinopril,5640,ibuprofen,high,reduced renal prostaglandin synthesis,acute kidney injury and hyperkalemia,avoid chronic NSAIDs in patients on ACE inhibitors
+6135,lisinopril,5487,potassium chloride,moderate,additive hyperkalemia risk,hyperkalemia,monitor serum potassium
+6918,simvastatin,89706,clarithromycin,high,CYP3A4 inhibition raises simvastatin levels,severe myopathy / rhabdomyolysis,hold simvastatin during macrolide course
+6918,simvastatin,4023,grapefruit juice,moderate,intestinal CYP3A4 inhibition,increased statin exposure,advise patients to avoid grapefruit juice
+1551,amiodarone,29046,warfarin,high,CYP2C9 inhibition,bleeding,reduce warfarin dose by 30-50%; monitor INR closely
+1551,amiodarone,3443,digoxin,high,p-glycoprotein inhibition,digoxin toxicity,reduce digoxin dose by 50%; monitor levels
+1551,amiodarone,6918,simvastatin,high,CYP3A4 inhibition,rhabdomyolysis,limit simvastatin to 20mg/day
+4337,clopidogrel,8183,omeprazole,moderate,CYP2C19 inhibition reduces clopidogrel activation,reduced antiplatelet effect,prefer pantoprazole over omeprazole
+3640,fluoxetine,32937,linezolid,high,MAOI-like effect on serotonin,serotonin syndrome,wait 5 weeks after fluoxetine before starting linezolid
+89013,sildenafil,4787,nitroglycerin,high,additive nitric-oxide vasodilation,profound hypotension,absolute contraindication
+1551,amiodarone,2670,levofloxacin,high,additive QT prolongation,torsades de pointes,avoid combination if alternative available
+4124,digoxin,5640,ibuprofen,moderate,reduced renal clearance,digoxin toxicity,monitor digoxin level
+6135,lisinopril,38454,spironolactone,high,additive hyperkalemia,life-threatening hyperkalemia,monitor potassium; avoid in renal impairment
+8163,metformin,313988,ranitidine,low,minor competitive renal tubular secretion,modest metformin level rise,no routine action
+2002,allopurinol,4337,clopidogrel,low,minor pharmacokinetic interaction,minimal clinical effect,no action required
+6135,lisinopril,1191,acetaminophen,low,no clinically significant interaction,none documented,no action required
+6809,metformin,29046,warfarin,low,no clinically significant interaction,none documented,no action required
