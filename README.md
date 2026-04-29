@@ -2,17 +2,111 @@
 
 > AI agents on watch for medication harm.
 
-A multi-agent medication safety review system that runs entirely on your
-local machine. Uses LangGraph to orchestrate four agents that parse drug
-names, check interactions, and produce plain-English summaries.
+A locally-hosted **multi-agent system** that performs comprehensive medication
+safety reviews — drug interactions, severity ranking, and plain-English patient
+explanations — entirely offline, using local SLMs via Ollama.
 
-## Status
+[![Made with LangGraph](https://img.shields.io/badge/LangGraph-0.2-1c3d5a)](https://langchain-ai.github.io/langgraph/)
+[![Next.js 15](https://img.shields.io/badge/Next.js-15-000000)](https://nextjs.org/)
+[![Ollama](https://img.shields.io/badge/Ollama-qwen2.5%3A3b-7b3fe4)](https://ollama.com/library/qwen2.5)
+[![License: MIT](https://img.shields.io/badge/license-MIT-06b6d4)](LICENSE)
 
-In progress — see `context/` for design docs.
+## What it does
 
-## Stack
+Paste a list of medications — even messy free text — and a swarm of agents will:
 
-- LangGraph + Ollama (`qwen2.5:3b`)
-- FastAPI backend
-- Next.js 15 frontend
-- RxNorm + openFDA for grounded data
+1. **Parse** each drug to a normalized RxNorm code.
+2. **Analyze** every drug-pair for interactions (openFDA + curated severe-interaction DB).
+3. **Communicate** the findings in plain English at a 6th-grade reading level.
+
+All locally. No data leaves your machine.
+
+## Architecture
+
+```
+┌──────────────────────────────────────────────────────────┐
+│  Coordinator → Parser → Analyzer → Communicator → END    │
+│  (validate)   (RxNorm)  (openFDA)  (Flesch-Kincaid)      │
+└──────────────────────────────────────────────────────────┘
+              ▲                                 ▲
+              │  shared TypedDict state         │
+              └─────────  trace logger ─────────┘
+```
+
+See [`docs/diagrams/`](docs/diagrams/) for full architecture diagrams.
+
+## Tech stack
+
+| Layer | Choice | Why |
+|---|---|---|
+| Orchestrator | **LangGraph** | First-class state, observability, conditional routing |
+| LLM | **Ollama** (`qwen2.5:3b`) | Local, free, strong tool-calling on small hardware |
+| Backend | **FastAPI + Pydantic v2** | Async, typed, SSE-native |
+| Frontend | **Next.js 15 + Tailwind v4 + shadcn/ui** | Modern, RSC-first, fast |
+| State store | **SQLite** | Zero-setup, file-backed caches |
+| Tracing | **Custom JSONL tracer** | Streamed live to UI via SSE |
+
+## Quick start
+
+```bash
+# Prerequisites: macOS/Linux, Python 3.11+, Node 20+, Ollama
+
+# 1. Pull the model
+ollama pull qwen2.5:3b
+
+# 2. Backend
+cd backend
+python -m venv .venv && source .venv/bin/activate
+pip install -e .
+uvicorn rxsentinel.app:app --reload
+
+# 3. Frontend (new terminal)
+cd frontend
+pnpm install
+pnpm dev
+
+# Open http://localhost:3000
+```
+
+## Project structure
+
+```
+.
+├── backend/
+│   ├── rxsentinel/
+│   │   ├── agents/         # 4 LangGraph nodes
+│   │   ├── tools/          # 4 custom tools (one per agent)
+│   │   ├── graph/          # StateGraph wiring
+│   │   ├── tracing/        # JSONL tracer + SSE
+│   │   └── app.py          # FastAPI entrypoint
+│   ├── tests/              # pytest unit + integration
+│   └── evals/              # LLM-as-Judge scripts
+├── frontend/
+│   ├── app/                # Next.js App Router
+│   ├── components/         # shadcn/ui components
+│   └── lib/                # Client utilities
+├── docs/
+│   ├── diagrams/           # Architecture diagrams
+│   └── report/             # LaTeX technical report
+└── scripts/                # Helper scripts
+```
+
+## Team
+
+| Member | GitHub | Owns |
+|---|---|---|
+| Rivin Sandeepa | [@ri7in](https://github.com/ri7in) | Coordinator agent + state validator + orchestration |
+| Thusala | [@thusalapi](https://github.com/thusalapi) | Medication Parser agent + RxNorm tool |
+| Shehan | [@ashehxn](https://github.com/ashehxn) | Interaction Analyzer agent + openFDA + interactions DB |
+| Sachila Wandya | [@SAwandya](https://github.com/SAwandya) | Patient Communicator agent + readability grader |
+
+## License
+
+MIT — see [LICENSE](LICENSE).
+
+## Acknowledgements
+
+- [RxNorm](https://www.nlm.nih.gov/research/umls/rxnorm/) — NIH normalized drug names
+- [openFDA](https://open.fda.gov/) — Adverse event data
+- [LangGraph](https://langchain-ai.github.io/langgraph/) — Graph-based agent orchestration
+- [Ollama](https://ollama.com/) — Local model serving
