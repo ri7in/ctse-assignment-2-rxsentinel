@@ -11,15 +11,20 @@
 \usepackage[T1]{fontenc}
 \usepackage[utf8]{inputenc}
 \usepackage{textcomp}
-\usepackage{lmodern}
+% Carlito = open-source Calibri-metric clone; matches the Word-default look.
+\usepackage[sfdefault]{carlito}
+\renewcommand*\familydefault{\sfdefault}
 
 % --- Math ---
 \usepackage{amsmath,amssymb}
 
-% --- Layout ---
-\usepackage[a4paper,margin=2.4cm]{geometry}
+% --- Layout (Word-style: 1-inch margins, 1.08 line spacing, 8pt para skip) ---
+\usepackage[a4paper,margin=2.54cm]{geometry}
 \usepackage{microtype}
-\usepackage{parskip}     % space between paragraphs, no first-line indent
+\usepackage{setspace}
+\setstretch{1.08}
+\setlength{\parskip}{0.55em}
+\setlength{\parindent}{0pt}
 \setcounter{secnumdepth}{-\maxdimen}  % no section numbers (matches the
                                        % EAD template); section names speak
                                        % for themselves.
@@ -85,7 +90,7 @@
 
 \textbf{\Large Assignment 2 — Multi-Agent System}\\[0.4cm]
 \textbf{\large SE4010 Current Trends in Software Engineering}\\[0.2cm]
-Y4S1\\[0.2cm]
+Y4S2\\[0.2cm]
 Software Engineering\\[1.2cm]
 
 % Student ID + Name table (matches EAD template style)
