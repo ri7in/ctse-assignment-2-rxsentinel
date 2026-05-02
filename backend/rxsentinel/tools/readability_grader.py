@@ -77,10 +77,10 @@ def count_syllables(word: str) -> int:
     # Count vowel groups.
     groups = _VOWEL_GROUP.findall(w)
     n = len(groups)
-    # Silent terminal "e" usually doesn't add a syllable.
-    if w.endswith("e") and n > 1 and not w.endswith("le"):
+    # Silent terminal "e" doesn't add a syllable (apple, table, make).
+    if w.endswith("e") and n > 1:
         n -= 1
-    # Final "le" preceded by a consonant adds one.
+    # Final "consonant + le" reclaims one syllable (ap-ple, ta-ble).
     if len(w) > 2 and w.endswith("le") and w[-3] not in "aeiouy":
         n += 1
     return max(n, 1)
