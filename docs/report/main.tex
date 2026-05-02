@@ -86,7 +86,7 @@
   urlcolor=rxprimary,
   citecolor=rxprimary,
   pdftitle={RxSentinel — A Locally-Hosted Multi-Agent System for Medication Safety Review},
-  pdfauthor={Sandeepa R.; Piyarisi T.; Wickramasooriya J.D.A.S.; Awandya S.A.}
+  pdfauthor={Jayasuriya L.K.R.S.; Piyarisi T.D.; Manamperi S.A.; Wickramasooriya J.D.A.S.}
 }
 
 % --- Lists ---
@@ -147,10 +147,10 @@
 \vspace{1.4cm}
 {\large\bfseries Group Members}\\[0.5cm]
 \begin{tabular}{ll}
-Sandeepa R.                 & IT22XXXXXX \\
-Piyarisi T.                 & IT22XXXXXX \\
+Jayasuriya L.\,K.\,R.\,S.\ (Rivin) & @ri7in's student ID \\
+Piyarisi T.\,D.\ (Thusala)         & IT22326690 \\
+Manamperi S.\,A.\ (Sachila)        & IT22004772 \\
 Wickramasooriya J.\,D.\,A.\,S.\ (Avishka) & IT22347244 \\
-Awandya S.\,A.              & IT22XXXXXX \\
 \end{tabular}
 
 \vfill
@@ -322,12 +322,12 @@ threaded through every node.}
 \small
 \begin{tabularx}{\linewidth}{l l Y l}
 \toprule
-\textbf{Member}                  & \textbf{Agent} & \textbf{Custom tool(s)} & \textbf{GitHub} \\
+\textbf{Member}                              & \textbf{Agent} & \textbf{Custom tool(s)} & \textbf{GitHub} \\
 \midrule
-Sandeepa R.                      & Coordinator    & \texttt{state\_validator}, tracing, FastAPI glue & \texttt{ri7in} \\
-Piyarisi T.                      & Med Parser     & \texttt{rxnorm\_lookup}, \texttt{dose\_normalizer}     & \texttt{thusalapi} \\
-Wickramasooriya J.\,D.\,A.\,S.\  & Analyzer       & \texttt{interaction\_checker}, \texttt{severity\_rules}& \texttt{ashehxn} \\
-Awandya S.\,A.                   & Communicator   & \texttt{readability\_grader}, frontend                 & \texttt{SAwandya} \\
+Jayasuriya L.\,K.\,R.\,S.\ (Rivin)           & Coordinator    & \texttt{state\_validator}, tracing, FastAPI glue       & \texttt{ri7in} \\
+Piyarisi T.\,D.\ (Thusala)                   & Med Parser     & \texttt{rxnorm\_lookup}, \texttt{dose\_normalizer}     & \texttt{thusalapi} \\
+Wickramasooriya J.\,D.\,A.\,S.\ (Avishka)    & Analyzer       & \texttt{interaction\_checker}, \texttt{severity\_rules}& \texttt{ashehxn} \\
+Manamperi S.\,A.\ (Sachila)                  & Communicator   & \texttt{readability\_grader}, frontend                 & \texttt{SAwandya} \\
 \bottomrule
 \end{tabularx}
 \end{table}
@@ -392,7 +392,7 @@ agent-specific: deterministic for routing/extraction, slightly warmer for
 the patient-facing prose. Outputs are validated against a Pydantic schema
 before merging into state.
 
-\subsubsection*{Coordinator (Sandeepa)}
+\subsubsection*{Coordinator (Rivin)}
 \textbf{Persona.} A senior clinical pharmacist who triages incoming
 reviews. \textbf{Constraints.} Never invents medications; halts on
 validation failure; emits exactly two outputs (a routing decision on the
@@ -401,7 +401,7 @@ The Coordinator runs a deterministic regex/length validator
 (\texttt{state\_validator.py}); after performance tuning the redundant LLM
 sanity check was removed (Section~\ref{sec:perf}).
 
-\subsubsection*{Medication Parser (Piyarisi)}
+\subsubsection*{Medication Parser (Thusala)}
 \textbf{Persona.} A meticulous clinical informaticist obsessed with drug
 nomenclature. \textbf{Constraints.} The RxCUI is taken \emph{only} from the
 \texttt{rxnorm\_lookup} tool; the agent is forbidden to fabricate codes.
@@ -410,7 +410,7 @@ candidate (drug-name, dose, frequency, route) tuples, then runs
 \texttt{asyncio.gather} of \texttt{rxnorm\_lookup} calls in parallel ---
 critical for the 12-second pipeline budget on a 5-medication input.
 
-\subsubsection*{Interaction Analyzer (Wickramasooriya)}
+\subsubsection*{Interaction Analyzer (Avishka)}
 \textbf{Persona.} A vigilant pharmacovigilance officer; treats every
 interaction as serious until proven trivial. \textbf{Constraints.}
 Mechanism text must come from tool data; ``unknown'' is preferable to a
@@ -420,7 +420,7 @@ pairs found, openFDA is queried in parallel for population-level signal,
 and \texttt{severity\_rules} promotes a low-severity rule to moderate when
 openFDA shows $>$5\,\% serious co-reports.
 
-\subsubsection*{Patient Communicator (Awandya)}
+\subsubsection*{Patient Communicator (Sachila)}
 \textbf{Persona.} A patient educator. Warm, clear, never condescending.
 \textbf{Constraints.} Output targets a 6th--8th grade reading level;
 never gives direct medical advice; always closes with ``\textit{talk to

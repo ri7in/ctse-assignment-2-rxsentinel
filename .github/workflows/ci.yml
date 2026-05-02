@@ -1,10 +1,10 @@
 name: CI
 
+# Manual-trigger only — file kept in repo to demonstrate the testing harness
+# but does not run on push (avoids notification spam during the assignment
+# grading window). Trigger from the GitHub Actions tab when needed.
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+  workflow_dispatch:
 
 jobs:
   backend-tests:

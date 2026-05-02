@@ -93,12 +93,12 @@ pnpm dev
 
 ## Team
 
-| Member | GitHub | Owns |
-|---|---|---|
-| Rivin Sandeepa | [@ri7in](https://github.com/ri7in) | Coordinator agent + state validator + orchestration |
-| Thusala | [@thusalapi](https://github.com/thusalapi) | Medication Parser agent + RxNorm tool |
-| Shehan | [@ashehxn](https://github.com/ashehxn) | Interaction Analyzer agent + openFDA + interactions DB |
-| Sachila Wandya | [@SAwandya](https://github.com/SAwandya) | Patient Communicator agent + readability grader |
+| Member | Student ID | GitHub | Owns |
+|---|---|---|---|
+| Jayasuriya L. K. R. S. (Rivin)        | @ri7in's student ID | [@ri7in](https://github.com/ri7in)          | Coordinator agent + state validator + orchestration |
+| Piyarisi T. D. (Thusala)              | IT22326690 | [@thusalapi](https://github.com/thusalapi)  | Medication Parser agent + RxNorm tool |
+| Wickramasooriya J. D. A. S. (Avishka) | IT22347244 | [@ashehxn](https://github.com/ashehxn)      | Interaction Analyzer agent + openFDA + interactions DB |
+| Manamperi S. A. (Sachila)             | IT22004772 | [@SAwandya](https://github.com/SAwandya)    | Patient Communicator agent + readability grader + frontend |
 
 ## License
 
