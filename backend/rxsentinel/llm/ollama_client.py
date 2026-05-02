@@ -70,6 +70,7 @@ class OllamaClient:
         *,
         temperature: float = 0.1,
         max_retries_on_invalid_json: int = 2,
+        max_tokens: int = 512,
     ) -> dict[str, Any]:
         """Run a chat completion expecting strict JSON output.
 
@@ -92,7 +93,7 @@ class OllamaClient:
             response = await self._client.chat(
                 model=model,
                 format="json",
-                options={"temperature": temperature},
+                options={"temperature": temperature, "num_predict": max_tokens},
                 messages=[
                     {"role": "system", "content": system},
                     {"role": "user", "content": user},
@@ -112,18 +113,33 @@ class OllamaClient:
         retry=retry_if_exception_type((httpx.HTTPError, ConnectionError, TimeoutError)),
         reraise=True,
     )
-    async def chat_text(self, system: str, user: str, *, temperature: float = 0.4) -> str:
+    async def chat_text(
+        self, system: str, user: str, *, temperature: float = 0.4, max_tokens: int = 800,
+    ) -> str:
         """Run a chat completion expecting free-text output."""
         model = await self._resolve_model()
         response = await self._client.chat(
             model=model,
-            options={"temperature": temperature},
+            options={"temperature": temperature, "num_predict": max_tokens},
             messages=[
                 {"role": "system", "content": system},
                 {"role": "user", "content": user},
             ],
         )
         return response["message"]["content"]
+
+    async def warmup(self) -> None:
+        """Send a tiny prompt to load the model into memory.
+
+        Avoids paying the 5-15s cold-start penalty on the first user request.
+        Safe to await at startup; failures are silent.
+        """
+        try:
+            await self.chat_text(
+                system="You are warming up.", user="ok", temperature=0.0, max_tokens=4,
+            )
+        except Exception:  # noqa: BLE001
+            pass
 
 
 @lru_cache(maxsize=1)

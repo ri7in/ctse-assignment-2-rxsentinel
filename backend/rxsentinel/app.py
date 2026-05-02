@@ -27,6 +27,7 @@ from sse_starlette.sse import EventSourceResponse
 
 from rxsentinel.config import settings
 from rxsentinel.graph import build_graph
+from rxsentinel.llm import get_ollama_client
 from rxsentinel.schemas import FinalReport
 from rxsentinel.state import RxState
 from rxsentinel.tracing.tracer import drop_tracer, get_tracer
@@ -39,9 +40,14 @@ _TASKS: dict[str, asyncio.Task] = {}
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    """Compile the graph once at startup."""
+    """Compile the graph and pre-warm the Ollama model at startup.
+
+    The warmup avoids paying the 5-15s cold-start penalty on the first
+    user request — the model gets loaded into RAM while we boot.
+    """
     global _GRAPH
     _GRAPH = build_graph()
+    asyncio.create_task(get_ollama_client().warmup())
     yield
 
 
