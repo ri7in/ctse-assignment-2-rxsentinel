@@ -8,8 +8,19 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
 echo "▸ Checking prerequisites..."
+# Prefer ~/.local/python-3.11 if present (standalone build), else PATH python3.11.
+if [ -x "$HOME/.local/python-3.11/bin/python3.11" ]; then
+  PYTHON_BIN="$HOME/.local/python-3.11/bin/python3.11"
+elif command -v python3.11 >/dev/null 2>&1; then
+  PYTHON_BIN="$(command -v python3.11)"
+elif command -v python3 >/dev/null 2>&1; then
+  PYTHON_BIN="$(command -v python3)"
+else
+  echo "✗ no python3 found"; exit 1
+fi
+echo "  python:  $PYTHON_BIN ($($PYTHON_BIN --version))"
+
 command -v ollama >/dev/null 2>&1 || { echo "✗ ollama not installed"; exit 1; }
-command -v python3 >/dev/null 2>&1 || { echo "✗ python3 not installed"; exit 1; }
 command -v pnpm >/dev/null 2>&1 || { echo "✗ pnpm not installed"; exit 1; }
 
 # Make sure the model is available.
@@ -28,10 +39,10 @@ fi
 
 # Backend: ensure venv + deps, then start uvicorn.
 if [ ! -d backend/.venv ]; then
-  echo "▸ Creating backend venv..."
-  (cd backend && python3.11 -m venv .venv 2>/dev/null || python3 -m venv .venv)
+  echo "▸ Creating backend venv with $PYTHON_BIN..."
+  (cd backend && "$PYTHON_BIN" -m venv .venv)
   echo "▸ Installing backend dependencies..."
-  (cd backend && .venv/bin/pip install -q -e ".[dev]")
+  (cd backend && .venv/bin/pip install -q --upgrade pip && .venv/bin/pip install -q -e ".[dev]")
 fi
 
 echo "▸ Starting backend on :8000..."
