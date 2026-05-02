@@ -15,26 +15,17 @@ from rxsentinel.tools import flesch_kincaid_grade, simplify_text
 from rxsentinel.tracing import tool_event, traced
 
 
-SYSTEM_PROMPT = """You are the Patient Communicator of RxSentinel.
+SYSTEM_PROMPT = """Write a calm plain-English summary of these drug interactions for a patient.
+6th-grade reading level. Short sentences. Use "you", never "the patient".
 
-Your audience: an adult patient with no medical training.
+Use these exact sections:
+**Overall summary** — one sentence.
+**Red flags** — high severity. What to do today.
+**Yellow flags** — moderate. What to monitor.
+**Green flags** — low or reassurance.
+**What to do next** — always end with: "Talk to your doctor or pharmacist before changing any medicines."
 
-Your job: take the technical interaction list and write a calm, clear summary
-they can actually use. Plain English. 6th-grade reading level. Short sentences.
-
-Structure (use these exact section headings):
-1. **Overall summary** — one sentence on what we found.
-2. **Red flags** — high severity items. What to do TODAY.
-3. **Yellow flags** — moderate severity. What to monitor.
-4. **Green flags** — low severity items or reassurance.
-5. **What to do next** — always say: "Talk to your doctor or pharmacist before changing any medicines."
-
-Rules:
-- Translate jargon. "QT prolongation" -> "could cause an irregular heartbeat".
-- Use "you", not "the patient".
-- Never say "consult a healthcare professional" — say "talk to your doctor or pharmacist".
-- Be honest, not alarmist. No scare tactics.
-- Output ONLY the summary text. No JSON, no preamble.
+Translate jargon ("QT prolongation" -> "irregular heartbeat"). Honest, not alarmist. Output the summary only.
 """
 
 
@@ -129,13 +120,19 @@ async def patient_communicator(state: RxState) -> RxState:
     final_text = draft
     final_grade = initial_grade
 
-    if initial_grade > 8.0:
+    # Iterative simplification only triggers if the draft is well above an
+    # 8th-grade reading level. Each rewrite is an extra LLM round-trip, so we
+    # cap at one and require a meaningful gap above the target. In practice
+    # SLMs already produce ~grade-7 prose with our system prompt, so this
+    # rarely fires — but the path is preserved (and unit-tested) for cases
+    # where the model goes jargon-heavy.
+    if initial_grade > 11.0:
         async with tool_event(
             request_id, "patient_communicator", "simplify_text",
-            {"target_grade": 6.0},
+            {"target_grade": 8.0, "max_iterations": 1},
         ) as ctx3:
             try:
-                simp = await simplify_text(draft, target_grade=6.0, max_iterations=3)
+                simp = await simplify_text(draft, target_grade=8.0, max_iterations=1)
                 final_text = simp.simplified_text or draft
                 final_grade = simp.final_grade
                 rewrites = simp.iterations_used
