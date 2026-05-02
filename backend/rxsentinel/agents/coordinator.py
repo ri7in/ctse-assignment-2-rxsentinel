@@ -9,8 +9,6 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, datetime
 
-from rxsentinel.config import settings
-from rxsentinel.llm import get_ollama_client
 from rxsentinel.schemas import FinalReport, SeveritySummary
 from rxsentinel.state import RxState
 from rxsentinel.tools import validate_initial_state
@@ -72,28 +70,16 @@ async def coordinator_validate(state: RxState) -> RxState:
             "decision": "halt",
         }
 
-    # Rule check passed. Do a lightweight LLM check to catch semantic edge
-    # cases the regex can't see.
-    client = get_ollama_client()
-    try:
-        result = await client.chat_json(
-            system=SYSTEM_PROMPT,
-            user=raw,
-            temperature=settings.temp_coordinator,
-        )
-        decision = result.get("decision", "proceed")
-    except Exception:  # noqa: BLE001
-        # If the LLM is unreachable we fall through to "proceed" — the rule
-        # check already guarantees minimum input quality. Halting on infra
-        # failure is worse than letting downstream agents try.
-        decision = "proceed"
-
+    # Rule check passed → proceed without an LLM round-trip. Downstream
+    # agents handle semantic edge cases (e.g. parser returns empty if no
+    # medications are found), so a second LLM validation here was just
+    # adding ~2s of latency for negligible benefit.
     return {
         "request_id": request_id,
         "started_at": started_at,
         "is_valid": True,
         "validation_errors": [],
-        "decision": decision,
+        "decision": "proceed",
     }
 
 
