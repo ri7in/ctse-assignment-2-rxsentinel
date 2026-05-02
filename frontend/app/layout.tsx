@@ -5,9 +5,9 @@ import { Toaster } from "sonner";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "RxSentinel — AI agents on watch for medication harm",
+  title: "RxSentinel — Medication safety review",
   description:
-    "A locally-hosted multi-agent system that performs medication safety reviews, drug-interaction analysis, and plain-English patient explanations. Free, private, offline.",
+    "Local multi-agent system for medication safety review. Drug interactions, severity ranking, and plain-English patient summaries — all running on your machine.",
   keywords: [
     "medication safety",
     "drug interaction checker",
@@ -25,7 +25,7 @@ export const metadata: Metadata = {
   ],
   openGraph: {
     title: "RxSentinel",
-    description: "AI agents on watch for medication harm.",
+    description: "Local agents for medication safety review.",
     type: "website",
   },
   icons: {
@@ -34,24 +34,24 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0a0e1a",
-  colorScheme: "dark",
+  themeColor: "#FAFAFA",
+  colorScheme: "light",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${GeistSans.variable} ${GeistMono.variable}`}>
-      <body className="min-h-screen mesh-bg antialiased">
+      <body className="min-h-screen bg-mesh antialiased">
         {children}
         <Toaster
-          theme="dark"
-          position="top-right"
+          theme="light"
+          position="bottom-right"
           toastOptions={{
             style: {
-              background: "rgba(15, 23, 41, 0.85)",
-              border: "1px solid rgba(255,255,255,0.08)",
-              color: "#f8fafc",
-              backdropFilter: "blur(20px)",
+              background: "#FFFFFF",
+              border: "1px solid #E7E5E4",
+              color: "#0A0E1A",
+              fontSize: "13px",
             },
           }}
         />
