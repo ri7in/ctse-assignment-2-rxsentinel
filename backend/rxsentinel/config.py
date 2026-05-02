@@ -7,6 +7,10 @@ from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
+# Repo root = parent of backend/ = parent of this file's grandparent.
+_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+
+
 class Settings(BaseSettings):
     """Runtime configuration loaded from environment + .env."""
 
@@ -22,7 +26,7 @@ class Settings(BaseSettings):
     rxnorm_base_url: str = Field("https://rxnav.nlm.nih.gov/REST", alias="RXNORM_BASE_URL")
     openfda_base_url: str = Field("https://api.fda.gov", alias="OPENFDA_BASE_URL")
 
-    trace_dir: Path = Field(Path("./runs"), alias="TRACE_DIR")
+    trace_dir: Path = Field(_REPO_ROOT / "backend" / "runs", alias="TRACE_DIR")
     log_level: str = Field("INFO", alias="LOG_LEVEL")
 
     temp_coordinator: float = Field(0.0, alias="LLM_TEMPERATURE_COORDINATOR")
@@ -33,7 +37,7 @@ class Settings(BaseSettings):
     http_timeout: float = Field(10.0, alias="HTTP_TIMEOUT_SECONDS")
     http_retries: int = Field(3, alias="HTTP_MAX_RETRIES")
 
-    cache_dir: Path = Field(Path("./backend/data/cache"), alias="CACHE_DIR")
+    cache_dir: Path = Field(_REPO_ROOT / "backend" / "data" / "cache", alias="CACHE_DIR")
 
 
 settings = Settings()
