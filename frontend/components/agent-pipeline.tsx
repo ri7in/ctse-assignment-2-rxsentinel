@@ -1,34 +1,33 @@
 "use client";
 
-import { motion, AnimatePresence } from "framer-motion";
-import { Check, Loader2, AlertCircle, Wrench } from "lucide-react";
+import { motion } from "framer-motion";
+import {
+  Check,
+  Loader2,
+  AlertCircle,
+  ShieldCheck,
+  Pill,
+  HeartPulse,
+  Stethoscope,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { TraceEvent } from "@/lib/api";
 
 const AGENTS = [
-  { key: "coordinator", label: "Coordinator", description: "Validate & route" },
-  { key: "med_parser", label: "Med Parser", description: "RxNorm normalize" },
-  { key: "interaction_analyzer", label: "Interaction Analyzer", description: "Find interactions" },
-  { key: "patient_communicator", label: "Patient Communicator", description: "Plain-English summary" },
+  { key: "coordinator",          label: "Validate", Icon: ShieldCheck },
+  { key: "med_parser",           label: "Parse",    Icon: Pill },
+  { key: "interaction_analyzer", label: "Analyze",  Icon: HeartPulse },
+  { key: "patient_communicator", label: "Explain",  Icon: Stethoscope },
 ] as const;
 
 type AgentStatus = "idle" | "running" | "done" | "error";
 
-function deriveAgentState(events: TraceEvent[]): Record<string, {
-  status: AgentStatus;
-  durationMs: number | null;
-  lastTool?: string;
-  toolCount: number;
-}> {
-  const map: Record<string, {
-    status: AgentStatus;
-    durationMs: number | null;
-    lastTool?: string;
-    toolCount: number;
-  }> = {};
-  for (const a of AGENTS) {
-    map[a.key] = { status: "idle", durationMs: null, toolCount: 0 };
-  }
+function deriveAgentState(events: TraceEvent[]): Record<
+  string,
+  { status: AgentStatus; durationMs: number | null }
+> {
+  const map: Record<string, { status: AgentStatus; durationMs: number | null }> = {};
+  for (const a of AGENTS) map[a.key] = { status: "idle", durationMs: null };
   for (const ev of events) {
     const cur = map[ev.agent];
     if (!cur) continue;
@@ -38,94 +37,126 @@ function deriveAgentState(events: TraceEvent[]): Record<string, {
       cur.durationMs = ev.duration_ms;
     }
     if (ev.event_type === "error") cur.status = "error";
-    if (ev.event_type === "tool_call") {
-      const tool = (ev.payload?.tool as string | undefined) || "";
-      cur.lastTool = tool;
-      cur.toolCount += 1;
-    }
   }
   return map;
 }
 
+/**
+ * Horizontal stepper, Linear-style. Each agent is a single row item with an
+ * icon, label, and timing. The active step pulses; completed steps show
+ * elapsed milliseconds in mono. Connectors between steps fill in as work
+ * progresses.
+ */
 export function AgentPipeline({ events }: { events: TraceEvent[] }) {
   const state = deriveAgentState(events);
+  const completed = AGENTS.filter((a) => state[a.key].status === "done").length;
+  const total = AGENTS.length;
+  const progressPct = (completed / total) * 100;
 
   return (
-    <div className="glass rounded-2xl p-5 md:p-6">
+    <div className="card p-4">
+      {/* Header row */}
       <div className="flex items-center justify-between mb-4">
-        <div>
-          <h3 className="text-sm font-semibold text-foreground">Live Agent Pipeline</h3>
-          <p className="text-xs text-foreground-dim mt-0.5">
-            Each card streams from the LangGraph trace via Server-Sent Events.
-          </p>
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] uppercase tracking-[0.14em] text-foreground-muted">
+            Pipeline
+          </span>
+          <span className="text-[11px] font-mono text-foreground-dim">
+            {completed}/{total}
+          </span>
         </div>
+        <span className="text-[11px] font-mono text-foreground-dim">LangGraph</span>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+      {/* Continuous progress bar — fills as steps complete */}
+      <div className="relative h-1 bg-surface-2 rounded-full overflow-hidden mb-5">
+        <motion.div
+          className="absolute inset-y-0 left-0 bg-gradient-to-r from-[#06B6D4] to-[#0891B2] rounded-full"
+          initial={{ width: 0 }}
+          animate={{ width: `${progressPct}%` }}
+          transition={{ duration: 0.4, ease: "easeOut" }}
+        />
+      </div>
+
+      {/* Steps row */}
+      <ol className="grid grid-cols-4 gap-1">
         {AGENTS.map((a, idx) => {
           const s = state[a.key];
-          const status = s.status;
+          const next = idx < AGENTS.length - 1 ? state[AGENTS[idx + 1].key] : null;
           return (
-            <motion.div
-              key={a.key}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: idx * 0.06 }}
-              className={cn(
-                "relative rounded-xl border p-4 transition-all duration-300",
-                status === "idle" && "border-white/5 bg-white/[0.02]",
-                status === "running" && "border-[#06B6D4]/40 bg-[#06B6D4]/5 pulse-ring",
-                status === "done" && "border-emerald-500/30 bg-emerald-500/5",
-                status === "error" && "border-rose-500/40 bg-rose-500/5",
+            <li key={a.key} className="relative">
+              <Step status={s.status} label={a.label} Icon={a.Icon} durationMs={s.durationMs} />
+              {/* Connector */}
+              {idx < AGENTS.length - 1 && (
+                <div
+                  className={cn(
+                    "absolute top-4 right-0 translate-x-1/2 w-2 h-px transition-colors",
+                    s.status === "done" || (s.status === "running" && next?.status !== "idle")
+                      ? "bg-[#0891B2]"
+                      : "bg-border",
+                  )}
+                />
               )}
-            >
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-mono text-foreground-dim">
-                  0{idx + 1}
-                </span>
-                <StatusIcon status={status} />
-              </div>
-              <h4 className="text-sm font-semibold text-foreground">
-                {a.label}
-              </h4>
-              <p className="text-xs text-foreground-dim mt-0.5">
-                {a.description}
-              </p>
-
-              <AnimatePresence>
-                {(s.lastTool || s.durationMs) && (
-                  <motion.div
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: "auto" }}
-                    className="mt-3 pt-3 border-t border-white/5 flex items-center justify-between text-[11px]"
-                  >
-                    {s.lastTool && (
-                      <span className="inline-flex items-center gap-1 text-foreground-muted">
-                        <Wrench size={10} /> {s.lastTool}
-                      </span>
-                    )}
-                    {s.durationMs !== null && (
-                      <span className="font-mono text-foreground-dim">
-                        {Math.round(s.durationMs)}ms
-                      </span>
-                    )}
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </motion.div>
+            </li>
           );
         })}
-      </div>
+      </ol>
     </div>
   );
 }
 
-function StatusIcon({ status }: { status: AgentStatus }) {
-  if (status === "running")
-    return <Loader2 size={16} className="text-[#06B6D4] animate-spin" />;
-  if (status === "done")
-    return <Check size={16} className="text-emerald-400" />;
-  if (status === "error")
-    return <AlertCircle size={16} className="text-rose-400" />;
-  return <div className="size-2 rounded-full bg-white/15" />;
+function Step({
+  status,
+  label,
+  Icon,
+  durationMs,
+}: {
+  status: AgentStatus;
+  label: string;
+  Icon: React.ComponentType<{ size?: number; strokeWidth?: number; className?: string }>;
+  durationMs: number | null;
+}) {
+  return (
+    <div className="flex items-center gap-2 min-w-0">
+      <div className="relative shrink-0">
+        <div
+          className={cn(
+            "size-8 grid place-items-center rounded-full border transition-colors",
+            status === "idle"    && "bg-surface border-border text-foreground-dim",
+            status === "running" && "bg-primary-soft border-primary-border text-primary",
+            status === "done"    && "bg-severity-low-bg border-severity-low-border text-severity-low",
+            status === "error"   && "bg-severity-high-bg border-severity-high-border text-severity-high",
+          )}
+        >
+          {status === "running" ? (
+            <Loader2 size={14} className="animate-spin" />
+          ) : status === "done" ? (
+            <Check size={14} strokeWidth={2.5} />
+          ) : status === "error" ? (
+            <AlertCircle size={14} strokeWidth={2.5} />
+          ) : (
+            <Icon size={14} strokeWidth={2} />
+          )}
+        </div>
+        {status === "running" && (
+          <span className="absolute inset-0 rounded-full border-2 border-[#0891B2] ring-pulse pointer-events-none" />
+        )}
+      </div>
+      <div className="min-w-0">
+        <div
+          className={cn(
+            "text-xs font-medium truncate",
+            status === "idle" ? "text-foreground-dim" : "text-foreground",
+          )}
+        >
+          {label}
+        </div>
+        {durationMs !== null && (
+          <div className="text-[10px] font-mono text-foreground-dim">
+            {Math.round(durationMs)}ms
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
