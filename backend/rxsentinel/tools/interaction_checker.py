@@ -37,7 +37,9 @@ from rxsentinel.config import settings
 
 Severity = Literal["high", "moderate", "low"]
 
-_INTERACTIONS_DB = settings.cache_dir / "interactions.db"
+def _interactions_db():
+    """Resolve the interactions DB path lazily so test fixtures can redirect it."""
+    return settings.cache_dir / "interactions.db"
 _OPENFDA_CACHE_TTL = timedelta(hours=24)
 _SEED_CSV = Path(__file__).resolve().parent.parent / "data" / "seed_interactions.csv"
 
@@ -59,7 +61,7 @@ class InteractionRecord:
 
 def _ensure_db() -> None:
     """Create the interactions table and seed it on first run."""
-    with closing(sqlite3.connect(_INTERACTIONS_DB)) as conn:
+    with closing(sqlite3.connect(_interactions_db())) as conn:
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS interactions (
@@ -117,7 +119,7 @@ def _local_lookup(rxcui_a: str, rxcui_b: str) -> InteractionRecord | None:
     """Query the local DB. Returns None if no record exists for the pair."""
     _ensure_db()
     a, b = sorted([rxcui_a, rxcui_b])
-    with closing(sqlite3.connect(_INTERACTIONS_DB)) as conn:
+    with closing(sqlite3.connect(_interactions_db())) as conn:
         row = conn.execute(
             """
             SELECT name_a, name_b, severity, mechanism, clinical_effect, recommendation
@@ -143,7 +145,7 @@ def _local_lookup(rxcui_a: str, rxcui_b: str) -> InteractionRecord | None:
 
 def _openfda_cache_get(key: str) -> dict[str, Any] | None:
     _ensure_db()
-    with closing(sqlite3.connect(_INTERACTIONS_DB)) as conn:
+    with closing(sqlite3.connect(_interactions_db())) as conn:
         row = conn.execute(
             "SELECT result, fetched_at FROM openfda_cache WHERE query_key = ?", (key,)
         ).fetchone()
@@ -156,7 +158,7 @@ def _openfda_cache_get(key: str) -> dict[str, Any] | None:
 
 def _openfda_cache_put(key: str, result: dict[str, Any]) -> None:
     _ensure_db()
-    with closing(sqlite3.connect(_INTERACTIONS_DB)) as conn:
+    with closing(sqlite3.connect(_interactions_db())) as conn:
         conn.execute(
             "INSERT OR REPLACE INTO openfda_cache (query_key, result, fetched_at) VALUES (?, ?, ?)",
             (key, json.dumps(result), datetime.utcnow().isoformat()),
@@ -217,8 +219,7 @@ async def query_openfda(drug_a: str, drug_b: str) -> dict[str, Any]:
                 return result
             resp.raise_for_status()
             data = resp.json()
-        except httpx.HTTPError:
-            # Graceful degrade: return empty result rather than crash.
+        except Exception:  # noqa: BLE001 — graceful degrade on any transport error
             return {"co_mention_count": 0, "top_reactions": [], "severity_signal": 0.0}
 
     reactions = data.get("results", [])
