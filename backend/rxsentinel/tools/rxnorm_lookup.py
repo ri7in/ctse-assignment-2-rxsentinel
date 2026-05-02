@@ -27,7 +27,9 @@ from rxsentinel.config import settings
 
 
 _CACHE_TTL = timedelta(days=7)
-_CACHE_DB = settings.cache_dir / "rxnorm_cache.db"
+def _cache_db() -> "Path":
+    """Resolve the cache DB path lazily so test fixtures can redirect it."""
+    return settings.cache_dir / "rxnorm_cache.db"
 
 
 @dataclass(slots=True)
@@ -56,7 +58,7 @@ class RxNormAPIError(RuntimeError):
 
 def _ensure_cache_table() -> None:
     """Create the cache table on first use."""
-    with closing(sqlite3.connect(_CACHE_DB)) as conn:
+    with closing(sqlite3.connect(_cache_db())) as conn:
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS rxnorm_cache (
@@ -72,7 +74,7 @@ def _ensure_cache_table() -> None:
 def _cache_get(query: str) -> RxNormResult | None:
     """Read a cached result if it exists and is not stale."""
     _ensure_cache_table()
-    with closing(sqlite3.connect(_CACHE_DB)) as conn:
+    with closing(sqlite3.connect(_cache_db())) as conn:
         row = conn.execute(
             "SELECT result, fetched_at FROM rxnorm_cache WHERE query = ?",
             (query.lower(),),
@@ -89,7 +91,7 @@ def _cache_get(query: str) -> RxNormResult | None:
 
 def _cache_put(query: str, result: RxNormResult) -> None:
     _ensure_cache_table()
-    with closing(sqlite3.connect(_CACHE_DB)) as conn:
+    with closing(sqlite3.connect(_cache_db())) as conn:
         conn.execute(
             "INSERT OR REPLACE INTO rxnorm_cache (query, result, fetched_at) VALUES (?, ?, ?)",
             (query.lower(), json.dumps(asdict(result)), datetime.utcnow().isoformat()),
