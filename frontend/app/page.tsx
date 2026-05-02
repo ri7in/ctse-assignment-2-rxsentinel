@@ -1,13 +1,15 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Github, Shield, Sparkles } from "lucide-react";
-import { motion } from "framer-motion";
+import { Github, Lock, Cpu, Zap, ArrowDown } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import { Logo } from "@/components/logo";
 import { MedicationForm } from "@/components/medication-form";
 import { AgentPipeline } from "@/components/agent-pipeline";
 import { ResultBento } from "@/components/result-bento";
 import { TraceViewer } from "@/components/trace-viewer";
+import { LiveActivity } from "@/components/live-activity";
+import { BackgroundDecor } from "@/components/background-decor";
 import {
   type FinalReport,
   type TraceEvent,
@@ -15,12 +17,24 @@ import {
   openTraceStream,
 } from "@/lib/api";
 
+type Phase = "idle" | "submitting" | "running" | "done";
+
 export default function Home() {
   const [requestId, setRequestId] = useState<string | null>(null);
   const [events, setEvents] = useState<TraceEvent[]>([]);
   const [report, setReport] = useState<FinalReport | null>(null);
   const closerRef = useRef<(() => void) | null>(null);
+  const resultsRef = useRef<HTMLDivElement | null>(null);
 
+  const phase: Phase = report
+    ? "done"
+    : requestId
+    ? events.length === 0
+      ? "submitting"
+      : "running"
+    : "idle";
+
+  // Open trace stream + poll report when a run starts.
   useEffect(() => {
     if (!requestId) return;
     setEvents([]);
@@ -52,67 +66,150 @@ export default function Home() {
     };
   }, [requestId]);
 
+  // Auto-scroll to results when the report arrives — this is the missing
+  // "you finished!" feedback the user complained about.
+  useEffect(() => {
+    if (report && resultsRef.current) {
+      // Tiny delay so the card has time to render before we scroll.
+      const t = setTimeout(() => {
+        resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 80);
+      return () => clearTimeout(t);
+    }
+  }, [report]);
+
+  function handleNewRun() {
+    setRequestId(null);
+    setEvents([]);
+    setReport(null);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
   return (
-    <main className="min-h-screen">
-      <header className="max-w-6xl mx-auto px-6 pt-8 pb-2 flex items-center justify-between">
-        <Logo size={32} withWordmark />
-        <div className="flex items-center gap-3 text-sm">
-          <a
-            href="https://github.com/ri7in/ctse-assignment-2-rxsentinel"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-white/8 hover:bg-white/5 hover:border-white/15 transition text-foreground-muted hover:text-foreground"
-          >
-            <Github size={14} /> GitHub
-          </a>
+    <main className="min-h-screen relative">
+      <BackgroundDecor />
+
+      {/* Tight sticky header */}
+      <header className="sticky top-0 z-50 border-b border-border bg-background/80 backdrop-blur-md">
+        <div className="max-w-5xl mx-auto px-5 h-12 flex items-center justify-between">
+          <Logo size={22} withWordmark />
+          <div className="flex items-center gap-1.5 text-xs">
+            {phase !== "idle" && (
+              <button
+                onClick={handleNewRun}
+                className="px-2.5 py-1 rounded-md text-foreground-muted hover:text-foreground hover:bg-surface-2 transition"
+              >
+                New review
+              </button>
+            )}
+            <a
+              href="https://github.com/ri7in/ctse-assignment-2-rxsentinel"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-foreground-muted hover:text-foreground hover:bg-surface-2 transition"
+            >
+              <Github size={12} /> Repo
+            </a>
+          </div>
         </div>
       </header>
 
-      <section className="max-w-6xl mx-auto px-6 py-12">
+      <section className="max-w-3xl mx-auto px-5 pt-14 md:pt-20 pb-10">
+        {/* Hero — short, professional */}
         <motion.div
-          initial={{ opacity: 0, y: 12 }}
+          initial={{ opacity: 0, y: 6 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="text-center mb-10"
+          transition={{ duration: 0.25 }}
+          className="text-center mb-8"
         >
-          <span className="inline-flex items-center gap-1.5 text-xs px-3 py-1 rounded-full border border-white/8 text-foreground-muted">
-            <Sparkles size={12} className="text-[#06B6D4]" />
-            Multi-agent · Local · Zero-cost
-          </span>
-          <h1 className="mt-5 text-4xl md:text-6xl font-bold tracking-tight">
-            <span className="bg-gradient-to-br from-[#06B6D4] to-[#0891B2] bg-clip-text text-transparent">
-              AI agents
-            </span>{" "}
-            on watch for
+          <h1 className="text-3xl md:text-[42px] font-semibold tracking-tight leading-[1.1] text-foreground">
+            Medication safety review,
             <br />
-            medication harm.
+            <span className="text-[#0891B2]">in plain English.</span>
           </h1>
-          <p className="mt-4 text-foreground-muted max-w-xl mx-auto">
-            Paste a list of medications. A swarm of four LangGraph agents — running
-            entirely on your machine via Ollama — finds interactions, ranks
-            severity, and explains it all in plain English.
+          <p className="mt-3 text-foreground-muted text-sm md:text-base max-w-md mx-auto">
+            Paste a medication list. Four local agents check for interactions,
+            severity, and explain it for you.
           </p>
         </motion.div>
 
-        <MedicationForm onStart={setRequestId} disabled={!!requestId && !report} />
+        {/* Form is the focal point */}
+        <MedicationForm onStart={setRequestId} phase={phase} />
 
-        {requestId && (
-          <div className="mt-6 space-y-4">
-            <AgentPipeline events={events} />
-            <TraceViewer events={events} />
+        {/* Trust strip — three short signals */}
+        {phase === "idle" && (
+          <div className="mt-4 flex items-center justify-center gap-5 text-[11px] text-foreground-dim">
+            <span className="inline-flex items-center gap-1"><Lock size={11} /> Local only</span>
+            <span className="inline-flex items-center gap-1"><Cpu size={11} /> Ollama (qwen2.5:3b)</span>
+            <span className="inline-flex items-center gap-1"><Zap size={11} /> Free, no keys</span>
           </div>
         )}
 
-        {report && (
-          <div className="mt-6">
-            <ResultBento report={report} />
+        {/* Live activity + pipeline — appears when a run is in flight */}
+        <AnimatePresence>
+          {requestId && (
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="mt-6 space-y-3"
+            >
+              <LiveActivity events={events} done={!!report} />
+              <AgentPipeline events={events} />
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* "Done — see results" callout when finished but user hasn't scrolled */}
+        <AnimatePresence>
+          {report && (
+            <motion.div
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.25 }}
+              className="mt-6 flex items-center justify-center"
+            >
+              <button
+                onClick={() =>
+                  resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+                }
+                className="inline-flex items-center gap-2 text-xs text-[#0891B2] hover:text-[#0E7490] transition"
+              >
+                Jump to results
+                <ArrowDown size={12} />
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Trace viewer (collapsed by default, available after a run starts) */}
+        {requestId && (
+          <div className="mt-3">
+            <TraceViewer events={events} />
           </div>
         )}
       </section>
 
-      <footer className="max-w-6xl mx-auto px-6 py-12 text-xs text-foreground-dim flex items-center gap-2">
-        <Shield size={12} />
-        Educational decision-support tool. Not a substitute for professional medical advice.
+      {/* Results — wider container so the bento has room. Auto-scrolled to. */}
+      {report && (
+        <section
+          ref={resultsRef}
+          className="max-w-5xl mx-auto px-5 pb-16 rise-in"
+          aria-label="Review results"
+        >
+          <ResultBento report={report} />
+        </section>
+      )}
+
+      {/* Footer */}
+      <footer className="border-t border-border bg-background/60">
+        <div className="max-w-5xl mx-auto px-5 py-5 flex items-center justify-between flex-wrap gap-3 text-[11px] text-foreground-dim">
+          <span>
+            Educational decision-support — not a substitute for professional medical advice.
+          </span>
+          <span className="font-mono">SE4010 · CTSE · 2026</span>
+        </div>
       </footer>
     </main>
   );
