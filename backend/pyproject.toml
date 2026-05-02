@@ -2,7 +2,6 @@
 name = "rxsentinel"
 version = "0.1.0"
 description = "RxSentinel — multi-agent medication safety review system"
-readme = "../README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
 authors = [
