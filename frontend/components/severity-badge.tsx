@@ -4,26 +4,11 @@ import type { Severity } from "@/lib/api";
 
 const config: Record<
   Severity,
-  { label: string; bg: string; text: string; icon: typeof AlertTriangle }
+  { label: string; cls: string; icon: typeof AlertTriangle }
 > = {
-  high: {
-    label: "High",
-    bg: "bg-rose-500/15",
-    text: "text-rose-300",
-    icon: AlertTriangle,
-  },
-  moderate: {
-    label: "Moderate",
-    bg: "bg-amber-500/15",
-    text: "text-amber-300",
-    icon: AlertCircle,
-  },
-  low: {
-    label: "Low",
-    bg: "bg-emerald-500/15",
-    text: "text-emerald-300",
-    icon: CheckCircle2,
-  },
+  high:     { label: "High",     cls: "severity-high",     icon: AlertTriangle },
+  moderate: { label: "Moderate", cls: "severity-moderate", icon: AlertCircle  },
+  low:      { label: "Low",      cls: "severity-low",      icon: CheckCircle2 },
 };
 
 export function SeverityBadge({
@@ -35,17 +20,16 @@ export function SeverityBadge({
   className?: string;
   showLabel?: boolean;
 }) {
-  const { label, bg, text, icon: Icon } = config[severity];
+  const { label, cls, icon: Icon } = config[severity];
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium border border-white/5",
-        bg,
-        text,
+        "inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-medium border",
+        cls,
         className,
       )}
     >
-      <Icon size={12} strokeWidth={2.5} />
+      <Icon size={11} strokeWidth={2.5} />
       {showLabel && <span>{label}</span>}
     </span>
   );
