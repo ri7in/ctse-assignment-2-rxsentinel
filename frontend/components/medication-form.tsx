@@ -1,121 +1,166 @@
 "use client";
 
-import { useState } from "react";
-import { ArrowRight, Loader2, Pill, Sparkles } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { ArrowRight, Loader2, Pill, Wand2, CheckCircle2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { submitReview } from "@/lib/api";
 
-const EXAMPLE_INPUTS = [
-  "metformin 500mg twice daily, lisinopril 10mg, ibuprofen as needed",
-  "warfarin 5mg, amiodarone 200mg, digoxin 0.25mg",
-  "fluoxetine 20mg, tramadol 50mg, sumatriptan 50mg",
-  "simvastatin 40mg, clarithromycin 500mg twice daily, grapefruit juice every morning",
-];
+const EXAMPLE =
+  "warfarin 5mg daily, amiodarone 200mg twice daily, ibuprofen 400mg as needed, simvastatin 40mg, clarithromycin 500mg twice daily";
+
+type Phase = "idle" | "submitting" | "running" | "done";
 
 interface Props {
   onStart: (requestId: string) => void;
-  disabled?: boolean;
+  phase: Phase;
 }
 
-export function MedicationForm({ onStart, disabled }: Props) {
+export function MedicationForm({ onStart, phase }: Props) {
   const [text, setText] = useState("");
-  const [submitting, setSubmitting] = useState(false);
+  const taRef = useRef<HTMLTextAreaElement>(null);
+  const locked = phase !== "idle";
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!text.trim() || submitting || disabled) return;
-    setSubmitting(true);
+  // Cmd/Ctrl + Enter to submit, regardless of focus.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+        e.preventDefault();
+        if (!locked && text.trim()) doSubmit();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [locked, text]);
+
+  async function doSubmit() {
     try {
       const { request_id } = await submitReview(text);
       onStart(request_id);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Submission failed");
-    } finally {
-      setSubmitting(false);
     }
+  }
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (locked || !text.trim()) return;
+    doSubmit();
   }
 
   return (
     <motion.form
       onSubmit={handleSubmit}
-      initial={{ opacity: 0, y: 16 }}
+      initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, ease: "easeOut" }}
-      className="glass rounded-2xl p-6 md:p-8"
+      transition={{ duration: 0.3, ease: "easeOut" }}
+      className={cn(
+        "card overflow-hidden transition-all duration-200",
+        locked && "border-[#A5F3FC] bg-primary-soft/30",
+      )}
     >
-      <div className="flex items-center gap-2 text-sm text-foreground-muted mb-3">
-        <Pill size={14} className="text-[#06B6D4]" />
-        <span>Paste your medication list — any format works.</span>
+      {/* Header row inside the card */}
+      <div className="flex items-center justify-between px-4 py-2.5 border-b border-border-subtle">
+        <span className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-[0.14em] text-foreground-muted">
+          <Pill size={12} className="text-[#0891B2]" />
+          Medications
+        </span>
+        <kbd className="hidden sm:inline-block">⌘ ↵ to run</kbd>
       </div>
+
       <textarea
+        ref={taRef}
         value={text}
         onChange={(e) => setText(e.target.value)}
-        placeholder="metformin 500mg twice daily, lisinopril 10mg, ibuprofen as needed..."
-        rows={5}
-        disabled={disabled || submitting}
+        placeholder="metformin 500mg twice daily, lisinopril 10mg, ibuprofen as needed…"
+        rows={4}
+        disabled={locked}
+        autoFocus
         className={cn(
-          "w-full bg-transparent border border-white/8 rounded-xl px-4 py-3",
-          "text-foreground placeholder:text-foreground-dim",
-          "focus:outline-none focus:border-[#06B6D4]/50 focus:ring-2 focus:ring-[#06B6D4]/20",
-          "transition-all resize-none font-mono text-sm",
-          (disabled || submitting) && "opacity-50",
+          "w-full bg-transparent border-0 outline-none resize-none",
+          "px-4 py-4 text-base leading-relaxed",
+          "placeholder:text-foreground-dim",
+          "font-mono",
+          locked && "opacity-60",
         )}
       />
 
-      <div className="mt-4 flex flex-wrap gap-2">
-        {EXAMPLE_INPUTS.map((ex) => (
+      <div className="flex items-center justify-between gap-3 px-4 py-3 border-t border-border-subtle bg-surface-2/40">
+        <div className="flex items-center gap-2">
           <button
-            key={ex}
             type="button"
-            onClick={() => setText(ex)}
-            disabled={disabled || submitting}
+            onClick={() => setText(EXAMPLE)}
+            disabled={locked}
             className={cn(
-              "text-xs px-2.5 py-1 rounded-full border border-white/8",
-              "hover:bg-white/5 hover:border-white/15 transition",
-              "text-foreground-muted hover:text-foreground",
+              "inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md",
+              "border border-border hover:border-foreground-dim hover:bg-surface-2",
+              "text-foreground-muted hover:text-foreground transition",
               "disabled:opacity-50 disabled:pointer-events-none",
             )}
           >
-            {ex.split(",")[0].trim()} +{ex.split(",").length - 1}
+            <Wand2 size={11} />
+            Try example
           </button>
-        ))}
-      </div>
+          {!locked && (
+            <span className="text-[11px] text-foreground-dim">
+              Free-form. Brand names, generic, misspellings — all fine.
+            </span>
+          )}
+        </div>
 
-      <div className="mt-5 flex items-center justify-between gap-3">
-        <p className="text-xs text-foreground-dim">
-          <Sparkles size={12} className="inline mr-1" />
-          Runs locally via Ollama. No data leaves your machine.
-        </p>
-        <button
-          type="submit"
-          disabled={!text.trim() || submitting || disabled}
-          className={cn(
-            "group inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-medium text-sm",
-            "bg-gradient-to-br from-[#06B6D4] to-[#0891B2] text-white",
-            "shadow-lg shadow-[#06B6D4]/20",
-            "hover:shadow-[#06B6D4]/40 hover:from-[#0CA8C9] hover:to-[#06B6D4]",
-            "transition-all duration-200",
-            "disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-[#06B6D4]/20",
-          )}
-        >
-          {submitting ? (
-            <>
-              <Loader2 size={16} className="animate-spin" />
-              Submitting…
-            </>
-          ) : (
-            <>
-              Run safety review
-              <ArrowRight
-                size={16}
-                className="transition-transform group-hover:translate-x-0.5"
-              />
-            </>
-          )}
-        </button>
+        <SubmitButton phase={phase} disabled={!text.trim()} />
       </div>
     </motion.form>
+  );
+}
+
+function SubmitButton({ phase, disabled }: { phase: Phase; disabled: boolean }) {
+  const isIdle = phase === "idle";
+  const label =
+    phase === "idle"
+      ? "Run review"
+      : phase === "submitting"
+      ? "Starting…"
+      : phase === "running"
+      ? "Working…"
+      : "Done";
+
+  const Icon =
+    phase === "idle"
+      ? ArrowRight
+      : phase === "done"
+      ? CheckCircle2
+      : Loader2;
+
+  const iconClass = phase === "running" || phase === "submitting" ? "animate-spin" : "";
+
+  return (
+    <button
+      type="submit"
+      disabled={!isIdle || disabled}
+      className={cn(
+        "group inline-flex items-center gap-1.5 px-3.5 py-2 rounded-md font-medium text-sm",
+        "transition-all duration-150",
+        phase === "idle" &&
+          "bg-foreground text-background hover:bg-foreground-muted disabled:opacity-30 disabled:cursor-not-allowed",
+        phase === "submitting" &&
+          "bg-foreground text-background opacity-80 cursor-wait",
+        phase === "running" &&
+          "bg-primary-soft text-primary border border-primary-border cursor-wait",
+        phase === "done" &&
+          "bg-severity-low-bg text-severity-low border border-severity-low-border",
+      )}
+    >
+      <span>{label}</span>
+      <Icon
+        size={14}
+        className={cn(
+          iconClass,
+          phase === "idle" && "transition-transform group-hover:translate-x-0.5",
+        )}
+      />
+    </button>
   );
 }
