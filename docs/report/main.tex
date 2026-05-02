@@ -1,0 +1,518 @@
+\documentclass[11pt,a4paper]{article}
+
+% --- Encoding & language ---
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[english]{babel}
+
+% --- Layout ---
+\usepackage[a4paper,margin=2.2cm]{geometry}
+\usepackage{microtype}
+\usepackage{titlesec}
+\titlespacing*{\section}{0pt}{1.4ex}{0.8ex}
+\titlespacing*{\subsection}{0pt}{1.0ex}{0.5ex}
+\setlength{\parskip}{0.4em}
+\setlength{\parindent}{0pt}
+
+% --- Color palette (matches the app's brand) ---
+\usepackage{xcolor}
+\definecolor{rxprimary}{HTML}{0891B2}
+\definecolor{rxhigh}{HTML}{F43F5E}
+\definecolor{rxmod}{HTML}{F59E0B}
+\definecolor{rxlow}{HTML}{10B981}
+\definecolor{rxsurface}{HTML}{0F1729}
+\definecolor{rxborder}{HTML}{1F2A44}
+\definecolor{rxfg}{HTML}{0F172A}
+
+% --- Typography ---
+\usepackage{lmodern}
+
+% --- Code / listings ---
+\usepackage{listings}
+\lstset{
+  basicstyle=\ttfamily\footnotesize,
+  keywordstyle=\color{rxprimary}\bfseries,
+  commentstyle=\color{gray}\itshape,
+  stringstyle=\color{rxlow},
+  numbers=none,
+  showstringspaces=false,
+  breaklines=true,
+  frame=single,
+  framesep=4pt,
+  rulecolor=\color{rxborder},
+  backgroundcolor=\color{rxsurface!4}
+}
+
+% --- TikZ for diagrams ---
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,shapes.geometric,calc,fit,backgrounds,shadows.blur}
+
+% --- Tables ---
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\newcolumntype{Y}{>{\raggedright\arraybackslash}X}
+
+% --- Hyperlinks ---
+\usepackage[hidelinks,colorlinks,linkcolor=rxprimary,urlcolor=rxprimary,citecolor=rxprimary]{hyperref}
+
+% --- Lists ---
+\usepackage{enumitem}
+\setlist{itemsep=2pt,topsep=2pt}
+
+% --- Header / footer ---
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyfoot[C]{\thepage}
+
+% --- Title block ---
+\title{\vspace{-1cm}\textbf{\textcolor{rxprimary}{Rx}Sentinel}: A Locally-Hosted Multi-Agent\\System for Medication Safety Review}
+\author{
+  Rivin Sandeepa\thanks{ri7in --- Coordinator agent + orchestration}
+  \and
+  Thusala\thanks{thusalapi --- Medication Parser agent + RxNorm tool}
+  \and
+  Shehan\thanks{ashehxn --- Interaction Analyzer agent + openFDA + DB}
+  \and
+  Sachila Wandya\thanks{SAwandya --- Patient Communicator + readability}
+}
+\date{SE4010 --- CTSE Assignment 2 \quad\textbar\quad May 2026}
+
+\begin{document}
+\maketitle
+\thispagestyle{empty}
+
+\begin{abstract}
+\noindent
+We present \textbf{RxSentinel}, a multi-agent system that performs medication
+safety reviews entirely on the user's local machine. The system orchestrates
+four specialised agents through LangGraph, each grounded in custom Python
+tools that interact with the NIH RxNorm REST API, the openFDA adverse-event
+database, a curated SQLite store of severe drug-drug interactions, and a
+local Flesch-Kincaid readability grader. Every agent step and tool call is
+captured in a streaming JSONL trace and surfaced live in a Next.js front-end.
+The complete pipeline runs on small language models served via Ollama (we
+evaluate \texttt{qwen2.5:3b} and \texttt{llama3.2:3b}), enabling private,
+zero-cost deployment on consumer hardware.
+\end{abstract}
+
+% =====================================================================
+\section{Problem Domain}
+% =====================================================================
+
+Adverse drug events (ADEs) are among the top five preventable causes of
+hospital admission worldwide, and polypharmacy in adults over 65 affects an
+estimated 40\% of the population~\cite{ades_review,polypharmacy}. Existing
+clinical decision support systems for medication safety --- Lexicomp,
+Micromedex, UpToDate --- are gated behind institutional licences,
+cloud-hosted, and prohibitively expensive for ambulatory use. The
+combination of personal medication lists being protected health information
+(PHI) and the network dependency of these tools means a privacy-friendly,
+free alternative is structurally absent from the market.
+
+This gap is the motivation for RxSentinel. By running the entire pipeline
+locally --- including the language model itself via Ollama --- we eliminate
+both the cost barrier and the privacy concern. The system targets two
+audiences: clinicians who need a quick interaction check at the point of
+care, and patients who want to review their own medication regimen before
+talking to their doctor or pharmacist.
+
+% =====================================================================
+\section{System Architecture}
+% =====================================================================
+
+RxSentinel adopts a strict-pipeline supervisor pattern. A bookend
+\emph{Coordinator} agent appears at both entry (validate the request,
+decide whether to proceed) and exit (assemble the final structured report).
+Three worker agents --- Parser, Analyzer, Communicator --- run sequentially
+between them. Figure~\ref{fig:arch} shows the high-level architecture.
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[
+  node distance=10mm,
+  agent/.style={rectangle, rounded corners=4pt, draw=rxprimary, fill=rxprimary!8,
+                minimum width=30mm, minimum height=12mm, align=center,
+                font=\sffamily\small, drop shadow},
+  tool/.style ={rectangle, rounded corners=2pt, draw=rxmod, fill=rxmod!10,
+                minimum width=28mm, minimum height=8mm, align=center,
+                font=\sffamily\footnotesize},
+  state/.style={rectangle, rounded corners=2pt, draw=rxlow, fill=rxlow!10,
+                font=\sffamily\footnotesize, minimum height=8mm},
+  arr/.style ={->, >=Stealth, thick, draw=rxprimary!70},
+  toolarr/.style={->, >=Stealth, dashed, draw=rxmod!80}
+]
+  % Agents
+  \node[agent] (c1) at (0,0)              {Coordinator\\\scriptsize validate + route};
+  \node[agent] (par)  [right=of c1]       {Med Parser};
+  \node[agent] (ana)  [right=of par]      {Interaction\\Analyzer};
+  \node[agent] (com)  [right=of ana]      {Patient\\Communicator};
+  \node[agent] (c2)   [right=of com]      {Coordinator\\\scriptsize assemble};
+
+  % State pipe at top
+  \node[state, fit=(c1)(c2), minimum height=5mm, opacity=0.4,
+        yshift=15mm, label={[font=\sffamily\scriptsize]left:RxState (TypedDict)}] (state) {};
+
+  % Tools below
+  \node[tool] (t1) [below=of par, yshift=-3mm]      {rxnorm\_lookup};
+  \node[tool] (t2) [below=of ana, xshift=-12mm, yshift=-3mm] {interaction\_checker};
+  \node[tool] (t3) [below=of ana, xshift=12mm, yshift=-3mm]  {openfda\_query};
+  \node[tool] (t4) [below=of com, yshift=-3mm]      {readability\_grader};
+  \node[tool] (t5) [below=of c1,  yshift=-3mm]      {state\_validator};
+
+  % Pipeline edges
+  \draw[arr] (c1) -- (par);
+  \draw[arr] (par) -- (ana);
+  \draw[arr] (ana) -- (com);
+  \draw[arr] (com) -- (c2);
+
+  % State edges
+  \draw[arr,opacity=0.4] (c1.north)  |- (state.south west);
+  \draw[arr,opacity=0.4] (state.south east) -| (c2.north);
+
+  % Tool edges
+  \draw[toolarr] (par) -- (t1);
+  \draw[toolarr] (ana) -- (t2);
+  \draw[toolarr] (ana) -- (t3);
+  \draw[toolarr] (com) -- (t4);
+  \draw[toolarr] (c1)  -- (t5);
+\end{tikzpicture}
+\caption{High-level architecture. Solid arrows show state flow; dashed
+arrows show tool invocations. The shared \texttt{RxState} TypedDict is
+threaded through every node.}
+\label{fig:arch}
+\end{figure}
+
+\subsection{Workflow}
+
+A request begins when the user submits free-form text (e.g., \emph{``warfarin 5mg,
+ibuprofen as needed''}) via the Next.js front-end. The flow is shown in
+Figure~\ref{fig:seq}.
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[
+  node distance=4mm,
+  step/.style={rectangle, rounded corners=2pt, draw=rxborder, fill=rxsurface!4,
+               text width=40mm, align=center, minimum height=7mm,
+               font=\sffamily\footnotesize},
+  arrow/.style={->,>=Stealth, thick, draw=rxprimary!70}
+]
+  \node[step] (s1) {1. \textbf{POST /api/review}\\returns request\_id};
+  \node[step,right=of s1] (s2) {2. Coordinator\\validates input};
+  \node[step,right=of s2] (s3) {3. Parser calls\\\texttt{rxnorm\_lookup} (parallel)};
+  \node[step,right=of s3] (s4) {4. Analyzer pairs $\binom{n}{2}$\\\texttt{check\_interaction}};
+  \node[below=8mm of s1, step] (s5) {7. Frontend polls\\\texttt{/report}};
+  \node[below=8mm of s2, step] (s6) {6. Coordinator\\assembles \texttt{FinalReport}};
+  \node[below=8mm of s3, step] (s7) {5b. \texttt{simplify\_text}\\if grade > 8};
+  \node[below=8mm of s4, step] (s8) {5. Communicator drafts\\plain-English summary};
+
+  \draw[arrow] (s1) -- (s2);
+  \draw[arrow] (s2) -- (s3);
+  \draw[arrow] (s3) -- (s4);
+  \draw[arrow] (s4.south) -- ++(0,-3mm) -| (s8.north);
+  \draw[arrow] (s8) -- (s7);
+  \draw[arrow] (s7) -- (s6);
+  \draw[arrow] (s6) -- (s5);
+  \draw[arrow,dashed] (s2.south) -| (s6.north) node[midway,right,font=\scriptsize\sffamily,fill=white]{halt path};
+\end{tikzpicture}
+\caption{End-to-end request sequence. The Coordinator can short-circuit
+to assembly when validation fails (dashed edge).}
+\label{fig:seq}
+\end{figure}
+
+\subsection{Observability}
+
+A custom \texttt{Tracer} writes one JSONL line per event (agent
+\textit{enter}, \textit{tool\_call}, \textit{tool\_result}, \textit{exit},
+\textit{error}) to \texttt{runs/<request\_id>.jsonl}. Events are also pushed
+to an in-memory \texttt{asyncio.Queue} which the SSE endpoint consumes,
+delivering live updates to the browser without polling.
+
+% =====================================================================
+\section{Agent Design}
+% =====================================================================
+
+Each agent has a tightly-scoped persona and constraints. Temperature is
+agent-specific: deterministic for routing/extraction, slightly warmer for
+the patient-facing prose. All structured outputs are validated against a
+Pydantic schema before merging into state.
+
+\subsection{Coordinator (Rivin)}
+\textbf{Persona.} A senior clinical pharmacist who triages incoming reviews.
+
+\textbf{Constraints.} Never invents medications; halts on validation
+failure; emits exactly two outputs --- a routing decision on the first pass
+and a final \texttt{FinalReport} on the assembly pass.
+
+\textbf{Reasoning.} The Coordinator runs two checks: a deterministic
+regex/length validator (\texttt{state\_validator.py}) and a lightweight LLM
+sanity check at temperature 0. The LLM check catches semantic edge cases
+(e.g., the user typed a question instead of a med list).
+
+\subsection{Medication Parser (Thusala)}
+\textbf{Persona.} A meticulous clinical informaticist obsessed with drug
+nomenclature.
+
+\textbf{Constraints.} The RxCUI is taken \emph{only} from the
+\texttt{rxnorm\_lookup} tool --- the agent is forbidden to fabricate codes.
+Confidence below 0.6 flags the entry for human review.
+
+\textbf{Reasoning.} The agent first calls the LLM to split the input into
+candidate (drug-name, dose, frequency, route) tuples, then runs an
+\texttt{asyncio.gather} of \texttt{rxnorm\_lookup} calls in parallel ---
+critical for the 12-second pipeline budget on a 5-medication input.
+
+\subsection{Interaction Analyzer (Shehan)}
+\textbf{Persona.} A vigilant pharmacovigilance officer; treats every
+interaction as serious until proven trivial.
+
+\textbf{Constraints.} Mechanism text must come from tool data (local DB or
+openFDA narrative); ``unknown'' is preferable to a fabrication.
+
+\textbf{Reasoning.} The agent enumerates $\binom{n}{2}$ unique pairs, then
+runs each through the local SQLite of curated severe interactions. For
+pairs found in the local DB, openFDA is queried in parallel for
+population-level signal. A low-severity local rule can be promoted to
+moderate when openFDA shows >5\% serious co-reports.
+
+\subsection{Patient Communicator (Sachila)}
+\textbf{Persona.} A patient educator. Warm, clear, never condescending.
+
+\textbf{Constraints.} Output must score $\le 6.0$ on Flesch-Kincaid grade
+level (8.0 tolerated); never gives direct medical advice; always closes
+with ``\textit{talk to your doctor or pharmacist}''.
+
+\textbf{Reasoning.} The communicator drafts a structured summary
+(red/yellow/green flags), grades the result, and if too complex calls
+\texttt{simplify\_text} for up to 3 LLM-rewrite iterations until the grade
+target is met.
+
+% =====================================================================
+\section{Custom Tools}
+% =====================================================================
+
+Each team member built one tool. All tools have strict type hints (\texttt{mypy
+--strict} clean), Pydantic-validated outputs, retry logic via
+\texttt{tenacity}, and a SQLite cache where applicable.
+
+\renewcommand{\arraystretch}{1.2}
+\begin{tabularx}{\linewidth}{l Y l}
+\toprule
+\textbf{Tool} & \textbf{Behaviour} & \textbf{Owner} \\
+\midrule
+\texttt{state\_validator.py}    & Pure-function input validator: length, alpha-ratio,
+                                  prompt-injection regex. No I/O.                    & Rivin   \\
+\texttt{rxnorm\_lookup.py}      & Async client for NIH RxNorm REST API; exact + fuzzy
+                                  match; SQLite cache (7-day TTL).                   & Thusala \\
+\texttt{interaction\_checker.py}& Local SQLite of 20+ curated severe pairs combined
+                                  with openFDA adverse-event signal.                 & Shehan  \\
+\texttt{readability\_grader.py} & Flesch-Kincaid grade computation + iterative LLM
+                                  simplifier with grade-target loop.                 & Sachila \\
+\bottomrule
+\end{tabularx}
+
+\subsection{Example tool invocation}
+
+The Parser issues the following call against a misspelled brand name:
+
+\begin{lstlisting}[language=Python]
+result = await rxnorm_lookup("metfromin")
+# RxNormResult(rxcui='6809', canonical_name='metformin',
+#              confidence=0.85, source='approximate',
+#              alternatives=[{'rxcui': '...', 'name': 'metoprolol'}])
+\end{lstlisting}
+
+The tool first hits \texttt{/REST/rxcui.json?name=metfromin} (which returns
+no exact match), then falls back to \texttt{/REST/approximateTerm.json},
+takes the highest-scoring candidate, blends the API confidence with a
+\texttt{rapidfuzz} similarity ratio, and writes the result to the local
+SQLite cache.
+
+% =====================================================================
+\section{State Management}
+% =====================================================================
+
+State is a single \texttt{TypedDict} called \texttt{RxState}, declared once
+and threaded through every node. LangGraph automatically merges the partial
+dict each agent returns into the cumulative state, so context never leaks
+between requests and agents only ever read what they need.
+
+\begin{lstlisting}[language=Python]
+class RxState(TypedDict, total=False):
+    raw_input: str
+    request_id: str
+    started_at: str
+    is_valid: bool
+    decision: str                       # "proceed" | "halt"
+    parsed_medications: list[Medication]
+    unparsed_terms: list[str]
+    interactions: list[Interaction]
+    severity_summary: SeveritySummary
+    patient_summary: str
+    readability_grade: float
+    rewrites_applied: int
+    final_report: FinalReport
+    trace: list[TraceEvent]
+\end{lstlisting}
+
+\paragraph{Read/write discipline.} Each key has exactly one writer:
+
+\begin{tabularx}{\linewidth}{l l Y}
+\toprule
+\textbf{Key}                   & \textbf{Writer}        & \textbf{Readers} \\
+\midrule
+\texttt{is\_valid, decision}   & Coordinator (validate) & Conditional edge \\
+\texttt{parsed\_medications}   & Med Parser             & Analyzer, Communicator, Coordinator \\
+\texttt{interactions}          & Analyzer               & Communicator, Coordinator \\
+\texttt{patient\_summary}      & Communicator           & Coordinator (assembly) \\
+\texttt{final\_report}         & Coordinator (assemble) & API response   \\
+\bottomrule
+\end{tabularx}
+
+\paragraph{Validation at boundaries.} Outputs from each LLM call are parsed
+by Pydantic v2 models before merging. Validation failures emit a trace
+event of type \texttt{error} and the Coordinator can decide to halt or
+continue with the partial state.
+
+% =====================================================================
+\section{Evaluation Methodology}
+% =====================================================================
+
+The evaluation harness has three layers: (i) deterministic unit tests for
+each tool, (ii) integration tests for each agent against a running Ollama,
+and (iii) an \emph{LLM-as-Judge} suite that grades each agent's output
+against a written rubric using the \emph{same} local model.
+
+\subsection{Unit testing}
+The pure-Python tools (\texttt{state\_validator}, \texttt{readability\_grader})
+are tested with \texttt{pytest} parametrised cases. The HTTP tools
+(\texttt{rxnorm\_lookup}, \texttt{interaction\_checker}) use \texttt{respx}
+to mock outbound requests; tests cover happy-path, fuzzy fallback, 404
+graceful-degrade, network failure, and cache-hit invariants.
+
+\subsection{LLM-as-Judge}
+For each agent we wrote a small \texttt{Case} list and a structured rubric.
+The judge is a separate Ollama call running at temperature 0 against the
+same model, returning a JSON \texttt{\{score, verdict, reasons\}}. Grading
+the rubric is \emph{stricter} than the agent's own success criterion --- the
+judge passes only if every ``must'' in the rubric is satisfied and no
+fabricated facts are introduced.
+
+\subsection{Reliability metrics}
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Pass rate} per agent, computed over the \texttt{Case} list.
+  \item \textbf{Hallucination rate} --- the judge flags a fabricated RxCUI,
+        invented mechanism, or unsupported claim.
+  \item \textbf{Tool-call accuracy} --- whether the agent invoked the
+        expected tool with the expected arguments, recovered from trace.
+  \item \textbf{Latency p50/p95} per agent, recorded by the tracer.
+\end{itemize}
+
+\subsection{Self-judging caveat}
+The assignment forbids paid LLM APIs, so the judge necessarily runs on the
+same local SLM as the agents under test. We acknowledge the obvious
+circularity: a model cannot reliably critique its own systematic blind
+spots. We mitigate by (a) using a stricter prompt for the judge than the
+agent, (b) using temperature 0 for grading, and (c) writing rubrics in
+terms of \emph{verifiable structural properties} (does the JSON parse? does
+the RxCUI exist? is the readability grade $\le 8$?) wherever possible
+rather than purely subjective judgement.
+
+% =====================================================================
+\section{Individual Contributions}
+% =====================================================================
+
+Each member built one agent, one tool, and the corresponding evaluation
+script. Branch-level commit history (filterable by author) is preserved on
+the public repository.
+
+\begin{tabularx}{\linewidth}{l Y l}
+\toprule
+\textbf{Member}    & \textbf{Contribution}                                         & \textbf{Key files} \\
+\midrule
+Rivin Sandeepa     & Coordinator agent, state validator tool, LangGraph wiring,
+                     FastAPI app + SSE, evaluation harness scaffolding.            & \texttt{coordinator.py},
+                                                                                     \texttt{state\_validator.py},
+                                                                                     \texttt{graph/build.py},
+                                                                                     \texttt{app.py} \\
+Thusala            & Med Parser agent, RxNorm tool with cache and fuzzy matching,
+                     parser evaluation suite.                                      & \texttt{med\_parser.py},
+                                                                                     \texttt{rxnorm\_lookup.py},
+                                                                                     \texttt{judge\_parser.py} \\
+Shehan             & Interaction Analyzer agent, openFDA + local-DB tool, severe-
+                     interaction seed dataset, analyzer evaluation suite.          & \texttt{interaction\_analyzer.py},
+                                                                                     \texttt{interaction\_checker.py},
+                                                                                     \texttt{seed\_interactions.csv} \\
+Sachila Wandya     & Patient Communicator agent, Flesch-Kincaid grader and
+                     simplifier, complete Next.js front-end (UI/UX), communicator
+                     evaluation suite.                                             & \texttt{patient\_communicator.py},
+                                                                                     \texttt{readability\_grader.py},
+                                                                                     \texttt{frontend/} \\
+\bottomrule
+\end{tabularx}
+
+\paragraph{Challenges encountered.}
+\textit{Rivin}: getting LangGraph's conditional edge to short-circuit cleanly
+to the assembly node without rewriting state. \textit{Thusala}: handling
+the inconsistent shape of RxNorm's \texttt{approximateTerm} response when
+zero candidates are returned. \textit{Shehan}: openFDA returns HTTP 404 for
+zero-result queries rather than 200 with an empty list, requiring custom
+error handling. \textit{Sachila}: tuning the simplifier loop to converge
+within 3 iterations on long technical inputs without losing clinical detail.
+
+% =====================================================================
+\section{Limitations and Future Work}
+% =====================================================================
+
+RxSentinel is positioned as an educational decision-support tool, not a
+substitute for clinical judgement. The most important limitations are: (i)
+small language models occasionally produce structurally-valid but factually
+incorrect output, mitigated but not eliminated by tool grounding; (ii) our
+self-judging evaluation cannot detect systematic blind spots shared by the
+agent and the judge; (iii) the local interaction database covers only the
+most clinically significant pairs, with longer-tail interactions relying on
+openFDA signal that lags real-world reporting by months.
+
+Promising future work includes (a) medication-image OCR for direct pill
+identification, (b) integration with FHIR-compliant electronic health record
+systems for in-clinic deployment, (c) multilingual support (the qwen2.5
+family is strong on this) so the patient summary can be delivered in the
+patient's native language, and (d) a feedback loop that allows clinicians
+to flag incorrect interactions, building a domain-specific fine-tuning
+dataset over time.
+
+% =====================================================================
+\section*{Repository}
+\addcontentsline{toc}{section}{Repository}
+
+\noindent
+\textbf{GitHub:} \url{https://github.com/ri7in/ctse-assignment-2-rxsentinel}
+
+% =====================================================================
+\begin{thebibliography}{9}
+\bibitem{ades_review}
+A. Bates et~al., \emph{Adverse drug events as a cause of hospital admission},
+British Journal of Clinical Pharmacology, 2020.
+\bibitem{polypharmacy}
+World Health Organization, \emph{Medication safety in polypharmacy}, 2019.
+\bibitem{rxnorm}
+National Library of Medicine, \emph{RxNorm REST API documentation},
+\url{https://rxnav.nlm.nih.gov/RxNormAPIs.html}
+\bibitem{openfda}
+U.S. Food and Drug Administration, \emph{openFDA Drug Event Endpoint},
+\url{https://open.fda.gov/apis/drug/event/}
+\bibitem{langgraph}
+LangChain AI, \emph{LangGraph documentation},
+\url{https://langchain-ai.github.io/langgraph/}
+\bibitem{ollama}
+Ollama Inc., \emph{Local model serving},
+\url{https://ollama.com}
+\bibitem{flesch}
+J.~P. Kincaid et~al., \emph{Derivation of New Readability Formulas for Navy
+Enlisted Personnel}, Naval Technical Training Command, 1975.
+\end{thebibliography}
+
+\end{document}
