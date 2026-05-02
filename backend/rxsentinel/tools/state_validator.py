@@ -11,7 +11,7 @@ from dataclasses import dataclass
 # Common prompt-injection markers seen in jailbreak attempts.
 _INJECTION_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(r"\bignore\s+(all\s+)?(previous|prior|above)\b", re.I),
-    re.compile(r"\bdisregard\s+(all\s+)?(previous|prior|instructions)\b", re.I),
+    re.compile(r"\bdisregard\s+(all\s+)?(previous|prior|above|instructions)\b", re.I),
     re.compile(r"\bsystem\s*:\s*you\s+are\b", re.I),
     re.compile(r"\bbypass\b.*\b(safety|filter|guard)", re.I),
     re.compile(r"\bjailbreak\b", re.I),
