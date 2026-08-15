@@ -1,5 +1,7 @@
 # RxSentinel
 
+> University group coursework project associated with [@ri7in](https://github.com/ri7in).
+
 > AI agents on watch for medication harm.
 
 A locally-hosted **multi-agent system** that performs comprehensive medication
